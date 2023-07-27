@@ -1,6 +1,13 @@
 
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.ArrayList;
+import javax.swing.JOptionPane;
+
 import javax.swing.table.DefaultTableModel;
+
 
 public class listagemVIEW extends javax.swing.JFrame {
 
@@ -9,13 +16,18 @@ public class listagemVIEW extends javax.swing.JFrame {
         initComponents();
         listarProdutos();
     }
+    
+    conectaDAO conexao = new conectaDAO();
+    ProdutosDAO produtosDAO = new ProdutosDAO(conexao);
+
+    
 
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
         jScrollPane1 = new javax.swing.JScrollPane();
-        listaProdutos = new javax.swing.JTable();
+        tabelaProdutos = new javax.swing.JTable();
         jLabel1 = new javax.swing.JLabel();
         jLabel2 = new javax.swing.JLabel();
         jScrollPane2 = new javax.swing.JScrollPane();
@@ -27,7 +39,7 @@ public class listagemVIEW extends javax.swing.JFrame {
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
-        listaProdutos.setModel(new javax.swing.table.DefaultTableModel(
+        tabelaProdutos.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
                 {null, null, null, null},
                 {null, null, null, null},
@@ -38,7 +50,7 @@ public class listagemVIEW extends javax.swing.JFrame {
                 "ID", "Nome", "Valor", "Status"
             }
         ));
-        jScrollPane1.setViewportView(listaProdutos);
+        jScrollPane1.setViewportView(tabelaProdutos);
 
         jLabel1.setFont(new java.awt.Font("Lucida Fax", 0, 18)); // NOI18N
         jLabel1.setText("Lista de Produtos");
@@ -120,12 +132,7 @@ public class listagemVIEW extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void btnVenderActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnVenderActionPerformed
-        String id = id_produto_venda.getText();
-        
-        ProdutosDAO produtosdao = new ProdutosDAO();
-        
-        produtosdao.venderProduto(Integer.parseInt(id));
-        listarProdutos();
+        venderProdutos();
     }//GEN-LAST:event_btnVenderActionPerformed
 
     private void btnVendasActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnVendasActionPerformed
@@ -136,8 +143,8 @@ public class listagemVIEW extends javax.swing.JFrame {
     private void btnVoltarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnVoltarActionPerformed
         this.dispose();
     }//GEN-LAST:event_btnVoltarActionPerformed
+    
 
- 
     public static void main(String args[]) {
         /* Set the Nimbus look and feel */
         //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
@@ -180,28 +187,102 @@ public class listagemVIEW extends javax.swing.JFrame {
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JSeparator jSeparator1;
-    private javax.swing.JTable listaProdutos;
+    private javax.swing.JTable tabelaProdutos;
     // End of variables declaration//GEN-END:variables
 
-    private void listarProdutos(){
+    private void listarProdutos() {
+
         try {
-            ProdutosDAO produtosdao = new ProdutosDAO();
-            
-            DefaultTableModel model = (DefaultTableModel) listaProdutos.getModel();
+
+            conexao.connectDB();
+
+            DefaultTableModel model = (DefaultTableModel) tabelaProdutos.getModel();
             model.setNumRows(0);
-            
-            ArrayList<ProdutosDTO> listagem = produtosdao.listarProdutos();
-            
-            for(int i = 0; i < listagem.size(); i++){
+
+            ArrayList<ProdutosDTO> listagem = produtosDAO.listagemProdutos();
+
+            for (int i = 0; i < listagem.size(); i++) {
+
                 model.addRow(new Object[]{
                     listagem.get(i).getId(),
                     listagem.get(i).getNome(),
                     listagem.get(i).getValor(),
                     listagem.get(i).getStatus()
+
                 });
             }
         } catch (Exception e) {
+
+            System.out.println("Erro List: " + e.getMessage());
         }
-    
+
     }
+
+    public void itemSelecionado() {
+
+        int selecteRow = tabelaProdutos.getSelectedRow();
+
+        if (selecteRow >= 0) {
+
+            String id = tabelaProdutos.getValueAt(selecteRow, 0).toString();
+
+            id_produto_venda.setText(id);
+
+        }
+
+    }
+    
+       public int venderProduto(int id) {
+        int status;
+        try {
+
+            conexao.connectDB();
+            Connection conn = conexao.getConexao();
+            String produtovendido = "Vendido";
+
+            PreparedStatement st = conn.prepareStatement("UPDATE produtos SET status =? WHERE id =? ");
+
+            st.setInt(2, id);
+            st.setString(1, produtovendido);
+
+            status = st.executeUpdate();
+
+            return status;
+        } catch (SQLException ex) {
+            System.out.println(ex.getErrorCode());
+            return ex.getErrorCode();
+        }
+    }
+        public void venderProdutos(){
+        
+        int resposta = JOptionPane.showOptionDialog(null,"Deseja prosseguir com a Venda?","Atenção",JOptionPane.YES_NO_OPTION,JOptionPane.QUESTION_MESSAGE,
+        null,new String[]{"SIM", "NÃO"}, "Não");
+
+        if (resposta == 0) {
+
+            int id = Integer.parseInt(id_produto_venda.getText());
+
+            boolean status = conexao.connectDB();
+
+            if (status == false) {
+
+                JOptionPane.showMessageDialog(null,"Erro ao conectar com o Banco de dados", "Banco Dados",JOptionPane.ERROR_MESSAGE);
+
+            } else {
+                ProdutosDAO produtosdao = new ProdutosDAO();
+                int retorno = venderProduto(id);
+
+                if (retorno == 1) {
+
+                    JOptionPane.showMessageDialog(null, "Produto com status Vendido!","Confirmação", JOptionPane.INFORMATION_MESSAGE);
+
+                }
+                conexao.desconectarDB();
+
+                id_produto_venda.setText("");
+                listarProdutos();
+            }
+
+        }
+    } 
 }
